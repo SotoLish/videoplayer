@@ -1,0 +1,42 @@
+# Gradle
+.gradle/
+gradle-home/
+gradle-local/
+gradle-8.8/
+gradle-8.4/
+gradle-bin.zip
+gradle-8.8.zip
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Build
+build/
+app/build/
+*/build/
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# Local config
+local.properties
+*.keystore
+!app/debug.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android
+*.apk
+*.aab
+*.ap_
+captures/
+.externalNativeBuild/
+
+# Misc
+*.log
+*.tmp
