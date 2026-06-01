@@ -10,11 +10,10 @@ android {
 
     signingConfigs {
         create("release") {
-            // 使用 debug 签名（开发测试用）
-            storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            storeFile = file(rootProject.projectDir.toString() + "/videoplayer.keystore")
+            storePassword = "Vide0P1ayer"
+            keyAlias = "videoplayer"
+            keyPassword = "Vide0P1ayer"
         }
     }
 
@@ -23,7 +22,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         // 只保留中文资源，大幅减小 APK 体积
         resourceConfigurations.addAll(listOf("zh"))
