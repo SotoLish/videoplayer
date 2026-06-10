@@ -64,6 +64,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // 进入后台前是否在播放（用于回到前台时恢复）
+    private var wasPlayingBeforeBackground = false
+
+    fun pauseForBackground() {
+        wasPlayingBeforeBackground = player.isPlaying
+        player.pause()
+        savePosition()
+    }
+
+    fun resumeAfterForeground() {
+        if (wasPlayingBeforeBackground && _state.value.hasVideo) {
+            player.play()
+        }
+    }
+
     init {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {

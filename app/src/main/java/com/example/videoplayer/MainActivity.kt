@@ -46,6 +46,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.pauseForBackground()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.resumeAfterForeground()
+    }
 }
 
 @Composable
