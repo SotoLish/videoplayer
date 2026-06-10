@@ -1,7 +1,9 @@
 package com.example.videoplayer
 
 import android.app.Application
+import android.content.SharedPreferences
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 
 data class PlayerState(
     val isPlaying: Boolean = false,
@@ -25,13 +28,41 @@ data class PlayerState(
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val prefs: SharedPreferences =
+        application.getSharedPreferences("videoplayer_prefs", Application.MODE_PRIVATE)
+
+    // 当前视频的存储 Key，空则表示没有加载视频
+    private var currentVideoKey: String = ""
+
     val player: ExoPlayer = ExoPlayer.Builder(application).build()
 
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
-    // 支持的倍速列表
-    val speedOptions = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+    // 支持的倍速列表（最高 6 倍）
+    val speedOptions = listOf(
+        0.5f, 0.75f, 1.0f, 1.25f, 1.5f,
+        2.0f, 3.0f, 4.0f, 5.0f, 6.0f
+    )
+
+    /**
+     * 根据视频 URI 生成唯一的存储 Key（SHA-256 哈希，避免特殊字符和长度问题）
+     */
+    private fun getVideoKey(uri: Uri): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update(uri.toString().toByteArray())
+        return "pos_" + digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * 保存当前播放位置到 SharedPreferences
+     * 仅当进度超过 5 秒时才保存，避免片头误记
+     */
+    private fun savePosition() {
+        if (currentVideoKey.isNotEmpty() && player.currentPosition > 5000) {
+            prefs.edit().putLong(currentVideoKey, player.currentPosition).apply()
+        }
+    }
 
     init {
         player.addListener(object : Player.Listener {
@@ -45,7 +76,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
         })
 
-        // 定时刷新进度
+        // 定时刷新进度（UI 用）
         viewModelScope.launch {
             while (true) {
                 if (player.isPlaying) {
@@ -57,22 +88,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 delay(500L)
             }
         }
+
+        // 每 5 秒自动保存一次播放位置
+        viewModelScope.launch {
+            while (true) {
+                delay(5000L)
+                savePosition()
+            }
+        }
     }
 
     /**
-     * 加载并播放视频
+     * 加载并播放视频（自动恢复上次播放位置）
      */
     fun loadVideo(uri: Uri, title: String = "") {
+        currentVideoKey = getVideoKey(uri)
+        val savedPosition = prefs.getLong(currentVideoKey, 0L)
+
         val mediaItem = MediaItem.fromUri(uri)
         player.setMediaItem(mediaItem)
         player.prepare()
+
+        // 恢复上次播放位置（超过 5 秒才恢复，避免片头）
+        if (savedPosition > 5000) {
+            player.seekTo(savedPosition)
+        }
+
         player.play()
         _state.value = _state.value.copy(
             hasVideo = true,
             videoTitle = title.ifEmpty { uri.lastPathSegment ?: "视频" },
-            playbackSpeed = 1.0f
+            playbackSpeed = 1.0f,
+            currentPosition = if (savedPosition > 5000) savedPosition else 0L
         )
-        // 重置倍速
         player.playbackParameters = PlaybackParameters(1.0f)
     }
 
@@ -82,6 +130,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun togglePlayPause() {
         if (player.isPlaying) {
             player.pause()
+            savePosition()
         } else {
             player.play()
         }
@@ -114,6 +163,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        savePosition()
         super.onCleared()
         player.release()
     }
